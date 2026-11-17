@@ -1,26 +1,23 @@
-import { useEffect, useState } from "react";
-import api from "./api";
+import { Navigate, Route, Routes } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
 
 export default function App() {
-  const [status, setStatus] = useState("checking...");
-
-  useEffect(() => {
-    api
-      .get("/health")
-      .then((res) => setStatus(res.data.status))
-      .catch(() => setStatus("server not reachable"));
-  }, []);
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-xl shadow text-center">
-        <h1 className="text-2xl font-bold text-indigo-600">
-          AI Support Platform
-        </h1>
-        <p className="mt-2 text-gray-600">
-          Server status: <span className="font-semibold">{status}</span>
-        </p>
-      </div>
-    </div>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
