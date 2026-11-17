@@ -1,4 +1,6 @@
-
+//import Ticket from "../models/Ticket.js";
+//import User from "../models/User.js";
+import Message from "../models/Message.js";
 import User from "../models/User.js";
 
 import Ticket from "../models/Ticket.js";
@@ -19,6 +21,16 @@ export const createTicket = async (req, res) => {
       priority,
       customer: req.user._id,
     });
+    const io = req.app.get("io");
+    if (io) {
+      io.to("staff").emit("ticket_notification", {
+        type: "new_ticket",
+        ticketId: ticket._id,
+        subject: ticket.subject,
+        priority: ticket.priority,
+        from: req.user.name,
+      });
+    }
 
     res.status(201).json(ticket);
   } catch (err) {
@@ -121,6 +133,44 @@ export const updateTicket = async (req, res) => {
     }
     if (err.name === "ValidationError") {
       return res.status(400).json({ message: err.message });
+    }
+    res.status(500).json({ message: err.message });
+  }
+};
+export const getTicketMessages = async (req, res) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket nahi mila" });
+    }
+
+    const isOwner = ticket.customer.equals(req.user._id);
+    const isStaff = ["agent", "admin"].includes(req.user.role);
+
+    if (!isOwner && !isStaff) {
+      return res.status(403).json({ message: "Aapko permission nahi hai" });
+    }
+
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const filter = { ticket: ticket._id };
+
+    if (req.query.before) {
+      const beforeDate = new Date(req.query.before);
+      if (isNaN(beforeDate)) {
+        return res.status(400).json({ message: "before ki date galat hai" });
+      }
+      filter.createdAt = { $lt: beforeDate };
+    }
+
+    const messages = await Message.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate("sender", "name");
+
+    res.json(messages.reverse());
+  } catch (err) {
+    if (err.name === "CastError") {
+      return res.status(400).json({ message: "Ticket id galat hai" });
     }
     res.status(500).json({ message: err.message });
   }
